@@ -1,239 +1,235 @@
 class DellC1760nwCard extends HTMLElement {
-  set hass(hass) {
-    this._hass = hass;
-    if (!this.content) {
-      this.innerHTML = `<ha-card></ha-card>`;
-      this.content = this.querySelector('ha-card');
-    }
-    this.updateView();
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
   }
 
   setConfig(config) {
-    this.config = {
-      title: 'Dell C1760nw',
+    this._config = Object.assign({
+      name: 'Dell C1760nw',
       warning_threshold: 15,
       critical_threshold: 5,
-      ...config
-    };
+      ip_address: '',
+      entity_cyan: '',
+      entity_magenta: '',
+      entity_yellow: '',
+      entity_black: '',
+      entity_status: '',
+      entity_counter: ''
+    }, config);
   }
 
-  getCardSize() {
-    return 3;
+  set hass(hass) {
+    this._hass = hass;
+    this.render();
   }
 
-  static async getConfigElement() {
-    return document.createElement('dell-c1760nw-card-editor');
+  _getValue(entityId) {
+    if (!entityId || !this._hass.states[entityId]) return null;
+    return this._hass.states[entityId].state;
   }
 
-  static getStubConfig() {
-    return {
-      title: 'Dell C1760nw',
-      ip_address: '192.168.1.50',
-      status_entity: '',
-      cyan_entity: '',
-      magenta_entity: '',
-      yellow_entity: '',
-      black_entity: '',
-      warning_threshold: 15,
-      critical_threshold: 5
-    };
+  _isOffline(status) {
+    if (!status) return false;
+    const s = status.toLowerCase();
+    return s === 'off' || s === 'offline' || s === 'unavailable' || s === 'unknown' || s === 'hors ligne' || s === 'éteint';
   }
 
-  updateView() {
-    if (!this._hass || !this.config) return;
+  render() {
+    if (!this._config || !this._hass) return;
 
-    const statusState = this.config.status_entity ? this._hass.states[this.config.status_entity] : null;
-    const statusText = statusState ? statusState.state : 'Inconnu';
-    const isOnline = statusState && !['unavailable', 'offline', 'off'].includes(statusState.state.toLowerCase());
+    const statusVal = this._getValue(this._config.entity_status) || 'Unknown';
+    const isOffline = this._isOffline(statusVal);
+
+    const cyanVal = parseFloat(this._getValue(this._config.entity_cyan)) || 0;
+    const magentaVal = parseFloat(this._getValue(this._config.entity_magenta)) || 0;
+    const yellowVal = parseFloat(this._getValue(this._config.entity_yellow)) || 0;
+    const blackVal = parseFloat(this._getValue(this._config.entity_black)) || 0;
+    const counterVal = this._getValue(this._config.entity_counter) || 'N/A';
 
     const toners = [
-      { name: 'Cyan', color: '#00bcd4', entity: this.config.cyan_entity },
-      { name: 'Magenta', color: '#e91e63', entity: this.config.magenta_entity },
-      { name: 'Jaune', color: '#ffeb3b', entity: this.config.yellow_entity },
-      { name: 'Noir', color: '#333333', entity: this.config.black_entity }
+      { name: 'Cyan', val: cyanVal, color: '#00bcd4' },
+      { name: 'Magenta', val: magentaVal, color: '#e91e63' },
+      { name: 'Yellow', val: yellowVal, color: '#ffeb3b' },
+      { name: 'Black', val: blackVal, color: '#424242' }
     ];
 
-    let tonersHtml = '';
+    const getTonerColor = (item) => {
+      if (item.val <= this._config.critical_threshold) return 'var(--error-color, #f44336)';
+      if (item.val <= this._config.warning_threshold) return 'var(--warning-color, #ff9800)';
+      return item.color;
+    };
 
-    toners.forEach(toner => {
-      const stateObj = toner.entity ? this._hass.states[toner.entity] : null;
-      const level = stateObj ? parseInt(stateObj.state, 10) || 0 : 0;
-      
-      let alertClass = '';
-      if (level <= this.config.critical_threshold) {
-        alertClass = 'critical';
-      } else if (level <= this.config.warning_threshold) {
-        alertClass = 'warning';
-      }
+    const webUrl = this._config.ip_address 
+      ? (this._config.ip_address.startsWith('http') ? this._config.ip_address : `http://${this._config.ip_address}`)
+      : null;
 
-      tonersHtml += `
-        <div class="toner-item ${alertClass}">
-          <div class="toner-header">
-            <span class="toner-name">
-              <span class="toner-dot" style="background-color: ${toner.color};"></span>
-              ${toner.name}
-            </span>
-            <span class="toner-value">${level}%</span>
-          </div>
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" style="width: ${level}%; background-color: ${toner.color};"></div>
-          </div>
-        </div>
-      `;
-    });
-
-    const webButtonHtml = this.config.ip_address ? `
-      <a class="web-btn" href="http://${this.config.ip_address.replace(/^https?:\/\//, '')}" target="_blank" rel="noopener noreferrer" title="Ouvrir l'interface Web">
-        <ha-icon icon="mdi:open-in-new"></ha-icon>
-      </a>
-    ` : '';
-
-    this.content.innerHTML = `
+    this.shadowRoot.innerHTML = `
       <style>
         ha-card {
           padding: 16px;
           border-radius: var(--ha-card-border-radius, 12px);
-          box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1));
+          box-shadow: var(--ha-card-box-shadow, none);
+          background: var(--ha-card-background, var(--card-background-color, #fff));
           font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif);
+          transition: all 0.3s ease;
         }
-        .header-container {
+        .header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 16px;
+          margin-bottom: ${isOffline ? '0' : '16px'};
         }
         .header-left {
           display: flex;
           align-items: center;
           gap: 12px;
         }
-        .icon-shape {
-          width: 42px;
-          height: 42px;
+        .icon-container {
+          width: 40px;
+          height: 40px;
           border-radius: 50%;
-          background-color: var(--primary-color-light, rgba(3, 169, 244, 0.12));
+          background: var(--secondary-background-color, rgba(0,0,0,0.05));
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--primary-color, #03a9f4);
+          color: ${isOffline ? 'var(--disabled-text-color, #9e9e9e)' : 'var(--primary-color, #03a9f4)'};
         }
-        .icon-shape.offline {
-          background-color: rgba(244, 67, 54, 0.12);
-          color: var(--error-color, #f44336);
-        }
-        .title-group {
+        .title-container {
           display: flex;
           flex-direction: column;
         }
-        .card-title {
-          font-size: 16px;
+        .title {
           font-weight: 600;
+          font-size: 16px;
           color: var(--primary-text-color);
-          line-height: 1.2;
         }
-        .status-subtitle {
+        .subtitle {
           font-size: 12px;
           color: var(--secondary-text-color);
-          margin-top: 2px;
         }
         .web-btn {
           display: inline-flex;
           align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background: var(--secondary-background-color, #f5f5f5);
+          gap: 4px;
+          padding: 6px 10px;
+          border-radius: 8px;
+          background: var(--secondary-background-color, rgba(0,0,0,0.05));
           color: var(--primary-text-color);
           text-decoration: none;
+          font-size: 12px;
+          font-weight: 500;
           transition: background 0.2s;
         }
         .web-btn:hover {
-          background: var(--divider-color, #e0e0e0);
+          background: var(--divider-color, rgba(0,0,0,0.1));
         }
-        .toners-grid {
+        .toner-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(2, 1fr);
           gap: 12px;
+          margin-bottom: 16px;
         }
         .toner-item {
-          background: var(--secondary-background-color, rgba(0, 0, 0, 0.03));
+          background: var(--secondary-background-color, rgba(0,0,0,0.03));
           padding: 10px;
           border-radius: 10px;
-          border: 1px solid transparent;
-          transition: border-color 0.3s;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
-        .toner-item.warning {
-          border-color: var(--warning-color, #ff9800);
-          background: rgba(255, 152, 0, 0.08);
-        }
-        .toner-item.critical {
-          border-color: var(--error-color, #f44336);
-          background: rgba(244, 67, 54, 0.08);
-          animation: pulse 2s infinite;
-        }
-        .toner-header {
+        .toner-info {
           display: flex;
           justify-content: space-between;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 500;
-          margin-bottom: 6px;
         }
-        .toner-name {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: var(--primary-text-color);
-        }
-        .toner-dot {
-          width: 8px;
+        .toner-bar-bg {
           height: 8px;
-          border-radius: 50%;
-        }
-        .toner-value {
-          color: var(--secondary-text-color);
-        }
-        .progress-bar-bg {
-          height: 8px;
-          background: var(--divider-color, rgba(0, 0, 0, 0.1));
+          width: 100%;
+          background: var(--divider-color, rgba(0,0,0,0.1));
           border-radius: 4px;
           overflow: hidden;
         }
-        .progress-bar-fill {
+        .toner-bar-fill {
           height: 100%;
           border-radius: 4px;
-          transition: width 0.4s ease;
+          transition: width 0.5s ease;
         }
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4); }
-          70% { box-shadow: 0 0 0 6px rgba(244, 67, 54, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); }
+        .footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 10px;
+          border-top: 1px solid var(--divider-color, rgba(0,0,0,0.08));
+          font-size: 12px;
+          color: var(--secondary-text-color);
         }
       </style>
 
-      <div class="header-container">
-        <div class="header-left">
-          <div class="icon-shape ${isOnline ? '' : 'offline'}">
-            <ha-icon icon="${isOnline ? 'mdi:printer' : 'mdi:printer-off'}"></ha-icon>
+      <ha-card>
+        <div class="header">
+          <div class="header-left">
+            <div class="icon-container">
+              <ha-icon icon="${isOffline ? 'mdi:printer-off' : 'mdi:printer'}"></ha-icon>
+            </div>
+            <div class="title-container">
+              <span class="title">${this._config.name}</span>
+              <span class="subtitle">Statut: ${statusVal}</span>
+            </div>
           </div>
-          <div class="title-group">
-            <span class="card-title">${this.config.title}</span>
-            <span class="status-subtitle">${statusText}</span>
-          </div>
+          ${webUrl ? `
+            <a class="web-btn" href="${webUrl}" target="_blank" rel="noopener noreferrer">
+              <span>Web UI</span>
+              <ha-icon icon="mdi:open-in-new" style="--mdc-icon-size: 14px;"></ha-icon>
+            </a>
+          ` : ''}
         </div>
-        ${webButtonHtml}
-      </div>
 
-      <div class="toners-grid">
-        ${tonersHtml}
-      </div>
+        ${!isOffline ? `
+          <div class="toner-grid">
+            ${toners.map(t => `
+              <div class="toner-item">
+                <div class="toner-info">
+                  <span>${t.name}</span>
+                  <span>${t.val}%</span>
+                </div>
+                <div class="toner-bar-bg">
+                  <div class="toner-bar-fill" style="width: ${Math.min(100, Math.max(0, t.val))}%; background-color: ${getTonerColor(t)};"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="footer">
+            <span>Pages imprimées</span>
+            <strong>${counterVal}</strong>
+          </div>
+        ` : ''}
+      </ha-card>
     `;
+  }
+
+  static getConfigElement() {
+    return document.createElement('dell-c1760nw-card-editor');
+  }
+
+  static getStubConfig() {
+    return {
+      name: 'Dell C1760nw',
+      warning_threshold: 15,
+      critical_threshold: 5,
+      ip_address: '192.168.1.100',
+      entity_cyan: '',
+      entity_magenta: '',
+      entity_yellow: '',
+      entity_black: '',
+      entity_status: '',
+      entity_counter: ''
+    };
   }
 }
 
-// -------------------------------------------------------------
-// ÉDITEUR GRAPHIQUE VISUEL (VISUAL GUI EDITOR)
-// -------------------------------------------------------------
 class DellC1760nwCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = config;
@@ -245,116 +241,65 @@ class DellC1760nwCardEditor extends HTMLElement {
     this.render();
   }
 
+  _valueChanged(ev) {
+    if (!this._config || !this._hass) return;
+    const target = ev.target;
+    const configValue = target.configValue;
+    const value = target.value;
+
+    if (this._config[configValue] === value) return;
+
+    const newConfig = Object.assign({}, this._config);
+    if (value === '') {
+      delete newConfig[configValue];
+    } else {
+      newConfig[configValue] = target.type === 'number' ? parseFloat(value) : value;
+    }
+
+    const event = new Event('config-changed', {
+      bubbles: true,
+      composed: true
+    });
+    event.detail = { config: newConfig };
+    this.dispatchEvent(event);
+  }
+
   render() {
     if (!this._hass || !this._config) return;
 
     this.innerHTML = `
-      <div class="card-config" style="display: flex; flex-direction: column; gap: 12px;">
-        <ha-textfield
-          label="Titre de la carte"
-          .value="${this._config.title || ''}"
-          .configValue="${'title'}"
-          @input="${this._valueChanged}">
-        </ha-textfield>
-
-        <ha-textfield
-          label="Adresse IP Imprimante (ex: 192.168.1.50)"
-          .value="${this._config.ip_address || ''}"
-          .configValue="${'ip_address'}"
-          @input="${this._valueChanged}">
-        </ha-textfield>
-
-        <ha-entity-picker
-          label="Entité Statut / État"
-          .hass="${this._hass}"
-          .value="${this._config.status_entity || ''}"
-          .configValue="${'status_entity'}"
-          @value-changed="${this._valueChanged}">
-        </ha-entity-picker>
-
-        <ha-entity-picker
-          label="Entité Toner Cyan (%)"
-          .hass="${this._hass}"
-          .value="${this._config.cyan_entity || ''}"
-          .configValue="${'cyan_entity'}"
-          @value-changed="${this._valueChanged}">
-        </ha-entity-picker>
-
-        <ha-entity-picker
-          label="Entité Toner Magenta (%)"
-          .hass="${this._hass}"
-          .value="${this._config.magenta_entity || ''}"
-          .configValue="${'magenta_entity'}"
-          @value-changed="${this._valueChanged}">
-        </ha-entity-picker>
-
-        <ha-entity-picker
-          label="Entité Toner Jaune (%)"
-          .hass="${this._hass}"
-          .value="${this._config.yellow_entity || ''}"
-          .configValue="${'yellow_entity'}"
-          @value-changed="${this._valueChanged}">
-        </ha-entity-picker>
-
-        <ha-entity-picker
-          label="Entité Toner Noir (%)"
-          .hass="${this._hass}"
-          .value="${this._config.black_entity || ''}"
-          .configValue="${'black_entity'}"
-          @value-changed="${this._valueChanged}">
-        </ha-entity-picker>
-
-        <div style="display: flex; gap: 12px;">
-          <ha-textfield
-            type="number"
-            label="Seuil d'avertissement (%)"
-            .value="${this._config.warning_threshold ?? 15}"
-            .configValue="${'warning_threshold'}"
-            @input="${this._valueChanged}"
-            style="flex: 1;">
-          </ha-textfield>
-
-          <ha-textfield
-            type="number"
-            label="Seuil critique (%)"
-            .value="${this._config.critical_threshold ?? 5}"
-            .configValue="${'critical_threshold'}"
-            @input="${this._valueChanged}"
-            style="flex: 1;">
-          </ha-textfield>
+      <div style="display: flex; flex-direction: column; gap: 12px; padding: 8px 0;">
+        <paper-input label="Nom de la carte" .value="${this._config.name || ''}" .configValue="${'name'}"></paper-input>
+        <paper-input label="Adresse IP (ex: 192.168.1.50)" .value="${this._config.ip_address || ''}" .configValue="${'ip_address'}"></paper-input>
+        
+        <div style="display: flex; gap: 10px;">
+          <paper-input style="flex:1" label="Seuil d'avertissement (%)" type="number" .value="${this._config.warning_threshold ?? 15}" .configValue="${'warning_threshold'}"></paper-input>
+          <paper-input style="flex:1" label="Seuil critique (%)" type="number" .value="${this._config.critical_threshold ?? 5}" .configValue="${'critical_threshold'}"></paper-input>
         </div>
+
+        <ha-entity-picker label="Entité Statut Imprimante" .hass="${this._hass}" .value="${this._config.entity_status || ''}" .configValue="${'entity_status'}" allow-custom-entity></ha-entity-picker>
+        <ha-entity-picker label="Entité Compteur de Pages" .hass="${this._hass}" .value="${this._config.entity_counter || ''}" .configValue="${'entity_counter'}" allow-custom-entity></ha-entity-picker>
+        
+        <ha-entity-picker label="Toner Cyan" .hass="${this._hass}" .value="${this._config.entity_cyan || ''}" .configValue="${'entity_cyan'}" allow-custom-entity></ha-entity-picker>
+        <ha-entity-picker label="Toner Magenta" .hass="${this._hass}" .value="${this._config.entity_magenta || ''}" .configValue="${'entity_magenta'}" allow-custom-entity></ha-entity-picker>
+        <ha-entity-picker label="Toner Yellow" .hass="${this._hass}" .value="${this._config.entity_yellow || ''}" .configValue="${'entity_yellow'}" allow-custom-entity></ha-entity-picker>
+        <ha-entity-picker label="Toner Black" .hass="${this._hass}" .value="${this._config.entity_black || ''}" .configValue="${'entity_black'}" allow-custom-entity></ha-entity-picker>
       </div>
     `;
-  }
 
-  _valueChanged(ev) {
-    if (!this._config || !this._hass) return;
-    const target = ev.target;
-    const value = ev.detail?.value !== undefined ? ev.detail.value : target.value;
-    const configValue = target.configValue;
-
-    if (this._config[configValue] === value) return;
-
-    this._config = {
-      ...this._config,
-      [configValue]: configValue.includes('threshold') ? Number(value) : value
-    };
-
-    const event = new CustomEvent('config-changed', {
-      detail: { config: this._config },
-      bubbles: true,
-      composed: true
+    this.querySelectorAll('paper-input, ha-entity-picker').forEach(element => {
+      element.addEventListener('value-changed', this._valueChanged.bind(this));
+      element.addEventListener('change', this._valueChanged.bind(this));
     });
-    this.dispatchEvent(event);
   }
 }
 
-customElements.define('dell-c1760nw-card', DellC1760nwCard);
 customElements.define('dell-c1760nw-card-editor', DellC1760nwCardEditor);
+customElements.define('dell-c1760nw-card', DellC1760nwCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'dell-c1760nw-card',
-  name: 'Dell C1760nw Printer Card',
-  description: 'Une carte moderne style Mushroom avec jauges et alertes pour imprimante Dell C1760nw.'
+  name: 'Dell C1760nw Card',
+  description: 'Carte moderne pour imprimante Dell C1760nw (Style Tile/Mushroom avec éditeur visual GUI)'
 });
