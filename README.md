@@ -2,12 +2,18 @@
 
 Carte Lovelace personnalisée pour l'intégration [hass-dell-c1760nw](https://github.com/mrzac/hass-dell-c1760nw).
 
-- Interface utilisant les variables de thème Home Assistant (clair/sombre).
-- Éditeur visuel intégré : sélection des entités, seuil toner et sections affichées.
-- Alertes SNMP : bourrage, capot, bac papier, bac récepteur toner, alerte textuelle et code Dell.
+## Fonctionnalités
+
+- Thème natif Home Assistant (clair/sombre).
+- Éditeur visuel intégré pour choisir les entités et régler le seuil toner.
+- Indicateur d'état dans l'en-tête avec code couleur.
+- **Mode compact automatique** lorsque le capteur de statut est `unavailable` : les jauges, alertes et compteurs sont masqués jusqu'au retour des données. Le bouton d'actualisation reste disponible.
+- Alertes actives présentées sous forme de badges : bourrage, capot, bac papier et bac récepteur toner ; les alertes inactives ne prennent pas de place.
+- Badges de toner faible selon le seuil configuré.
 - Jauges des toners noir, cyan, magenta et jaune.
 - Compteurs total, noir & blanc et couleur.
-- Informations appareil et bouton de rafraîchissement.
+- **Informations techniques repliables** : adresse IP, firmware et numéro de série. L'adresse IP ouvre l'interface Web de l'imprimante.
+- Bouton d'actualisation SNMP.
 
 ## Installation HACS
 
@@ -24,8 +30,6 @@ La ressource est normalement ajoutée automatiquement par HACS. Si nécessaire, 
 Copier `dell-c1760nw-card.js` dans `/config/www/`, puis ajouter la ressource `/local/dell-c1760nw-card.js` de type **JavaScript module**.
 
 ## Configuration YAML
-
-La carte peut être ajoutée depuis l'éditeur visuel. Exemple YAML :
 
 ```yaml
 type: custom:dell-c1760nw-card
@@ -56,8 +60,10 @@ Les noms d'entités Home Assistant peuvent différer si un identifiant existant 
 
 ## Notes
 
+- Le mode compact est déclenché par l'état `unavailable` du capteur de statut ; il ne dépend pas de la valeur d'un capteur de toner.
 - Le seuil toner est de 15 % par défaut et se règle dans l'éditeur.
 - Les alertes binaires indisponibles ne sont pas considérées comme des défauts actifs.
+- Le lien IP utilise `http://` si le capteur fournit uniquement une adresse ou un nom d'hôte. Si une URL `http://` ou `https://` complète est fournie, elle est conservée.
 - Le bouton Actualiser appelle le service `button.press` sur l'entité de rafraîchissement.
 - La carte ne modifie pas l'intégration ni les données SNMP ; elle affiche les états fournis par Home Assistant.
 
